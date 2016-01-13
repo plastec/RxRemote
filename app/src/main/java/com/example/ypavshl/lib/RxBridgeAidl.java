@@ -91,9 +91,9 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
 
             remote.registerRemote(this);
             mRemotes.put(remote, remote.getComponentName());
-            onRemoteRegirested(remote, mRemotes.get(remote));
+            onRxRemoteRegistered(remote, mRemotes.get(remote));
             if (mRegistrationListener != null)
-                mRegistrationListener.onRemoteRegirested(remote, component);
+                mRegistrationListener.onRemoteRegistered(remote, component);
         } catch (RemoteException e) {
             // no need to do anything here
         }
@@ -104,9 +104,9 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
 
         Log.i(TAG + " RemoteRx", "unregisterRemote " + remote + " " + remote.getComponentName());
         ComponentName component = mRemotes.remove(remote);
-        onRemoteUnregirested(remote, component);
+        onRxRemoteUnregistered(remote, component);
         if (mRegistrationListener != null)
-            mRegistrationListener.onRemoteUnregirested(remote, component);
+            mRegistrationListener.onRemoteUnregistered(remote, component);
     }
 
     /**
@@ -114,14 +114,14 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
      * @param remote
      * @param name
      */
-    protected void onRemoteRegirested(IRxRemote remote, ComponentName name) {}
+    protected void onRxRemoteRegistered(IRxRemote remote, ComponentName name) {}
 
     /**
      * Called when a remote bridge is unregirested to this bridge
      * @param remote
      * @param name
      */
-    protected void onRemoteUnregirested(IRxRemote remote, ComponentName name) {}
+    protected void onRxRemoteUnregistered(IRxRemote remote, ComponentName name) {}
 
     @Override
     public boolean registerKey(IRxRemote remote, ComponentRemoteKey key) {
@@ -226,28 +226,33 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
 
     @Override
     public <T> void unbindObservable(RemoteKey<T> key, ComponentName componentName) {
-        synchronized (key) {
-            Subject toUnbind = mBoundObservables.remove(key);
-            if (toUnbind != null){
-                toUnbind.onCompleted();
-            }
-
-            try {
-                ComponentRemoteKey compKey = new ComponentRemoteKey(key, componentName); // TODO make cache for remote component key
-                mRemotes.get(componentName).unregisterKey(this, compKey);
-            } catch (RemoteException e) {
-                // no need to do anything here
-            }
-        }
+        ComponentRemoteKey compKey = new ComponentRemoteKey(key, componentName); // TODO make cache for remote component key
+        unbindObservable(compKey);
     }
 
     public <T> void unbindObservable(RemoteKey<T> key, Class clazz) {
         unbindObservable(key, new ComponentName(mContext, clazz));
     }
 
+    private <T> void unbindObservable(ComponentRemoteKey<T> compKey) {
+        synchronized (compKey.remoteKey) {
+            Subject s = mBoundObservables.remove(compKey);
+            if (s != null){
+                s.onCompleted();
+            }
+
+            try {
+                mRemotes.get(compKey.component).unregisterKey(this, compKey);
+            } catch (RemoteException e) {
+                // no need to do anything here
+            }
+        }
+    }
+
     @Override
     public void unbindObservables() {
-
+        for(ComponentRemoteKey compKey : mBoundObservables.keySet())
+            unbindObservable(compKey);
     }
 
     private <T> void subscribe(final ComponentRemoteKey<T> key) {

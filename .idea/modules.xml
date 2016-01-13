@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/RxService.iml" filepath="$PROJECT_DIR$/RxService.iml" />
+      <module fileurl="file://$PROJECT_DIR$/RxRemote.iml" filepath="$PROJECT_DIR$/RxRemote.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
   </component>

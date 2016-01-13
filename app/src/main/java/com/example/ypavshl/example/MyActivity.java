@@ -30,15 +30,13 @@ public class MyActivity extends AppCompatActivity {
     private TextView mTextView;
     private FloatingActionButton mButton;
 
-    private Observable<ColorItem> mRemoteObservable;
     private BehaviorSubject<ButtonItem> mButtonObservable = BehaviorSubject.create();
-//    private RxServiceConnectionAidl mRxConnection;
+
     private RxServiceConnectionAidl mRxConnection = new RxServiceConnectionAidl(this) {
         @Override
         public void onServiceConnected(ComponentName className, IBinder service) {
             super.onServiceConnected(className, service);
-            mRemoteObservable = mRxConnection.bindObservable(MyService.COLOR_OBSERVABLE_KEY);
-            mRemoteObservable
+            mRxConnection.bindObservable(MyService.COLOR_OBSERVABLE_KEY)
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe(item -> {
                         mTextView.setText(item.getText());
@@ -50,7 +48,6 @@ public class MyActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.i(TAG + " RemoteRx", "onCreate");
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -69,29 +66,13 @@ public class MyActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        Log.i(TAG + " RemoteRx", "onResume");
-        Intent intent = new Intent(this, MyService.class);
-//        mRxConnection = new RxServiceConnectionAidl(this) {
-//            @Override
-//            public void onServiceConnected(ComponentName className, IBinder service) {
-//                super.onServiceConnected(className, service);
-//                mRemoteObservable = mRxConnection.bindObservable(MyService.COLOR_OBSERVABLE_KEY);
-//                mRemoteObservable
-//                        .observeOn(AndroidSchedulers.mainThread())
-//                        .subscribe(item -> {
-//                            mTextView.setText(item.getText());
-//                            mTextView.setBackgroundColor(item.getColor());
-//                        });
-//            }
-//        };
-
         mRxConnection.offerObservable(BUTTON_OBSERVABLE_KEY, mButtonObservable);
+        Intent intent = new Intent(this, MyService.class);
         bindService(intent, mRxConnection, Context.BIND_AUTO_CREATE);
     }
 
     @Override
     protected void onPause() {
-        Log.i(TAG + " RemoteRx", "onPause");
         mRxConnection.unbindObservables();
         unbindService(mRxConnection);
         super.onPause();

@@ -21,7 +21,7 @@
         </activity>
 
         <service android:name="com.example.ypavshl.example.MyService"
-                 android:process=":tick">
+                 android:process=":routine">
         </service>
 
     </application>

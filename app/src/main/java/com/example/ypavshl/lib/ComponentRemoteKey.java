@@ -13,7 +13,7 @@ import com.example.ypavshl.lib.parcel.RemoteKey;
 class ComponentRemoteKey<T> implements Parcelable {
 
     final RemoteKey<T> remoteKey;
-    final ComponentName mComponent;
+    final ComponentName component;
 
     ComponentRemoteKey(RemoteKey<T> key, Context context) {
         this(key, new ComponentName(context, context.getClass()));
@@ -23,7 +23,7 @@ class ComponentRemoteKey<T> implements Parcelable {
         if (key == null || component == null)
             throw new IllegalArgumentException("The arguments can't be null!");
         remoteKey = key;
-        mComponent = component;
+        this.component = component;
     }
 
     @Override
@@ -34,14 +34,14 @@ class ComponentRemoteKey<T> implements Parcelable {
         ComponentRemoteKey that = (ComponentRemoteKey) o;
 
         if (!remoteKey.equals(that.remoteKey)) return false;
-        return mComponent.equals(that.mComponent);
+        return component.equals(that.component);
 
     }
 
     @Override
     public int hashCode() {
         int result = remoteKey.hashCode();
-        result = 31 * result + mComponent.hashCode();
+        result = 31 * result + component.hashCode();
         return result;
     }
 
@@ -53,12 +53,12 @@ class ComponentRemoteKey<T> implements Parcelable {
     @Override
     public void writeToParcel(Parcel dest, int flags) {
         dest.writeParcelable(this.remoteKey, 0);
-        dest.writeParcelable(this.mComponent, 0);
+        dest.writeParcelable(this.component, 0);
     }
 
     protected ComponentRemoteKey(Parcel in) {
         this.remoteKey = in.readParcelable(RemoteKey.class.getClassLoader());
-        this.mComponent = in.readParcelable(ComponentName.class.getClassLoader());
+        this.component = in.readParcelable(ComponentName.class.getClassLoader());
     }
 
     public static final Creator<ComponentRemoteKey> CREATOR = new Creator<ComponentRemoteKey>() {

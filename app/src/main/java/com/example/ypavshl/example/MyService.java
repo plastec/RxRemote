@@ -31,6 +31,11 @@ public class MyService extends Service implements OnRxRemoteRegistrationListener
 
     public static final RemoteKey<ColorItem> COLOR_OBSERVABLE_KEY = new RemoteKey<>();
 
+    private RxBinderAidl mBinder;
+    private BehaviorSubject<ColorItem> mColorObservable = BehaviorSubject.create();
+    private Thread mRoutine;
+    private Observable<ButtonItem> mRemoteButtonObservable;
+
     private volatile int mCounter;
     private Runnable mRunnable = new Runnable() {
         @Override
@@ -42,22 +47,15 @@ public class MyService extends Service implements OnRxRemoteRegistrationListener
                 } catch (InterruptedException e) {
                     return;
                 }
-//                Log.i(TAG + " RemoteRx", "onNext text:" + i + " color:" + color);
                 mColorObservable.onNext(new ColorItem("item: " + ++mCounter ,
                         ColorGenerator.generate()));
             }
         }
     };
 
-    private RxBinderAidl mBinder;
-    private BehaviorSubject<ColorItem> mColorObservable = BehaviorSubject.create();
-    private Thread mRoutine;
-    private Observable<ButtonItem> mRemoteButtonObservable;
-
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        Log.i(TAG + " RemoteRx", "onBind " + this);
         mBinder = new RxBinderAidl(this, this);
         mBinder.offerObservable(COLOR_OBSERVABLE_KEY, mColorObservable);
 
@@ -69,22 +67,19 @@ public class MyService extends Service implements OnRxRemoteRegistrationListener
 
     @Override
     public boolean onUnbind(Intent intent) {
-        Log.i(TAG + " RemoteRx", "onUnbind " + this);
-//        mBinder.dismissObservable(COLOR_OBSERVABLE_KEY);
+        mBinder.dismissObservable(COLOR_OBSERVABLE_KEY);
         mRoutine.interrupt();
         return super.onUnbind(intent);
     }
 
+    // TODO try to substitute this callback with Observable
     @Override
-    public void onRemoteRegirested(IRxRemote remote, ComponentName component) {
-        Log.i(TAG + "  RemoteRx", "onRemoteRegirested " + component.getClass());
+    public void onRemoteRegistered(/*ncdot used*/IRxRemote remote, ComponentName component) {
         if (MyActivity.class.getName().equals(component.getClassName())) {
-            Log.i(TAG + "  RemoteRx", "onRemoteRegirested MyActivity");
             mRemoteButtonObservable
                     = mBinder.bindObservable(MyActivity.BUTTON_OBSERVABLE_KEY, MyActivity.class);
             mRemoteButtonObservable
                 .subscribe(buttonItem -> {
-                    Log.i(TAG + "  RemoteRx", "buttonItem action = " + buttonItem.getState());
                     mCounter = 0;
                     mColorObservable.onNext(new ColorItem("item: " + mCounter , Color.WHITE));
                 });
@@ -92,7 +87,6 @@ public class MyService extends Service implements OnRxRemoteRegistrationListener
     }
 
     @Override
-    public void onRemoteUnregirested(IRxRemote remote, ComponentName component) {
-        Log.i(TAG + "  RemoteRx", "onRemoteRegirested " + component.getClass());
+    public void onRemoteUnregistered(IRxRemote remote, ComponentName component) {
     }
 }
