@@ -34,7 +34,6 @@ public class MyService extends Service implements OnRxRemoteRegistrationListener
     private RxBinderAidl mBinder;
     private BehaviorSubject<ColorItem> mColorObservable = BehaviorSubject.create();
     private Thread mRoutine;
-    private Observable<ButtonItem> mRemoteButtonObservable;
 
     private volatile int mCounter;
     private Runnable mRunnable = new Runnable() {
@@ -47,7 +46,7 @@ public class MyService extends Service implements OnRxRemoteRegistrationListener
                 } catch (InterruptedException e) {
                     return;
                 }
-                mColorObservable.onNext(new ColorItem("item: " + ++mCounter ,
+                mColorObservable.onNext(new ColorItem("item: " + ++mCounter  + " " + MyService.this,
                         ColorGenerator.generate()));
             }
         }
@@ -67,7 +66,8 @@ public class MyService extends Service implements OnRxRemoteRegistrationListener
 
     @Override
     public boolean onUnbind(Intent intent) {
-        mBinder.dismissObservable(COLOR_OBSERVABLE_KEY);
+        mBinder.unbindObservables();
+        mBinder.dismissObservables();
         mRoutine.interrupt();
         return super.onUnbind(intent);
     }
@@ -76,9 +76,7 @@ public class MyService extends Service implements OnRxRemoteRegistrationListener
     @Override
     public void onRemoteRegistered(/*ncdot used*/IRxRemote remote, ComponentName component) {
         if (MyActivity.class.getName().equals(component.getClassName())) {
-            mRemoteButtonObservable
-                    = mBinder.bindObservable(MyActivity.BUTTON_OBSERVABLE_KEY, MyActivity.class);
-            mRemoteButtonObservable
+            mBinder.bindObservable(MyActivity.BUTTON_OBSERVABLE_KEY, MyActivity.class)
                 .subscribe(buttonItem -> {
                     mCounter = 0;
                     mColorObservable.onNext(new ColorItem("item: " + mCounter , Color.WHITE));

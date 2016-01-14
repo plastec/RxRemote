@@ -53,6 +53,10 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
 
     @Override
     public void onNext(ComponentRemoteKey key, RemoteItem item) throws RemoteException {
+        Log.i(TAG + " RxRemote", "onNext " + key.component + " " + this);
+        for (ComponentRemoteKey ck : mBoundObservables.keySet()) {
+            Log.i(TAG + " RxRemote", "mBoundObservables " + ck.component + " " + mBoundObservables.get(ck));
+        }
         mBoundObservables.get(key).onNext(item.item);
     }
 
@@ -200,21 +204,27 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
     @Override
     public <T> Observable<T> bindObservable(RemoteKey<T> key, ComponentName componentName) {
         ComponentRemoteKey<T> compKey = new ComponentRemoteKey(key, componentName); // TODO make cache for remote component key
-        return bindObservable(key, compKey, componentName);
+        return bindObservable(compKey);
     }
 
-    private <T> Observable<T> bindObservable(RemoteKey<T> key, ComponentRemoteKey<T> compKey, ComponentName componentName) {
-        synchronized (key) {
+    private <T> Observable<T> bindObservable(ComponentRemoteKey<T> compKey) {
+        Log.i(TAG + " RxRemote", "bindObservable " + compKey.component + " " + this);
+        synchronized (compKey.remoteKey) {
             if (mBoundObservables.containsKey(compKey)) {
+                Log.i(TAG + " RxRemote", "1 bindObservable " + compKey.component + " " + this);
                 return mBoundObservables.get(compKey);
             }
 
             BehaviorSubject<T> subject = null;
 
             try {
-                if (mRemotes.get(componentName).registerKey(this, compKey)) {
+                Log.i(TAG + " RxRemote", "2 bindObservable " + compKey.component + " " + this);
+                if (mRemotes.get(compKey.component).registerKey(this, compKey)) {
+                    Log.i(TAG + " RxRemote", "3 bindObservable " + compKey.component + " " + this);
                     subject = BehaviorSubject.create();
                     mBoundObservables.put(compKey, subject);
+                    Log.i(TAG + " RxRemote", "4 bindObservable " + subject + " " + this);
+                    Log.i(TAG + " RxRemote", "5 bindObservable " + mBoundObservables.get(compKey) + " " + this);
                 }
             } catch (RemoteException e) {
                 // no need to do anything here
@@ -236,7 +246,9 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
 
     private <T> void unbindObservable(ComponentRemoteKey<T> compKey) {
         synchronized (compKey.remoteKey) {
+
             Subject s = mBoundObservables.remove(compKey);
+            Log.i(TAG + " RxRemote", "unbindObservable " + s);
             if (s != null){
                 s.onCompleted();
             }
@@ -251,6 +263,7 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
 
     @Override
     public void unbindObservables() {
+        Log.i(TAG + " RxRemote", "unbindObservables()");
         for(ComponentRemoteKey compKey : mBoundObservables.keySet())
             unbindObservable(compKey);
     }

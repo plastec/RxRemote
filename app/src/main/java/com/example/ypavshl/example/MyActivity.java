@@ -74,6 +74,7 @@ public class MyActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         mRxConnection.unbindObservables();
+        mRxConnection.dismissObservables();
         unbindService(mRxConnection);
         super.onPause();
     }
