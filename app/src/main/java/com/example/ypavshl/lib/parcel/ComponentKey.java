@@ -1,25 +1,23 @@
-package com.example.ypavshl.lib;
+package com.example.ypavshl.lib.parcel;
 
 import android.content.ComponentName;
 import android.content.Context;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-import com.example.ypavshl.lib.parcel.RemoteKey;
-
 /**
  * Created by ypavshl on 13.1.16.
  */
-class ComponentRemoteKey<T> implements Parcelable {
+public class ComponentKey<T> implements Parcelable {
 
-    final RemoteKey<T> remoteKey;
-    final ComponentName component;
+    public final RemoteKey<T> remoteKey;
+    public final ComponentName component;
 
-    ComponentRemoteKey(RemoteKey<T> key, Context context) {
+    public ComponentKey(RemoteKey<T> key, Context context) {
         this(key, new ComponentName(context, context.getClass()));
     }
 
-    ComponentRemoteKey(RemoteKey<T> key, ComponentName component) {
+    public ComponentKey(RemoteKey<T> key, ComponentName component) {
         if (key == null || component == null)
             throw new IllegalArgumentException("The arguments can't be null!");
         remoteKey = key;
@@ -31,7 +29,7 @@ class ComponentRemoteKey<T> implements Parcelable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        ComponentRemoteKey that = (ComponentRemoteKey) o;
+        ComponentKey that = (ComponentKey) o;
 
         if (!remoteKey.equals(that.remoteKey)) return false;
         return component.equals(that.component);
@@ -56,18 +54,18 @@ class ComponentRemoteKey<T> implements Parcelable {
         dest.writeParcelable(this.component, 0);
     }
 
-    protected ComponentRemoteKey(Parcel in) {
+    protected ComponentKey(Parcel in) {
         this.remoteKey = in.readParcelable(RemoteKey.class.getClassLoader());
         this.component = in.readParcelable(ComponentName.class.getClassLoader());
     }
 
-    public static final Creator<ComponentRemoteKey> CREATOR = new Creator<ComponentRemoteKey>() {
-        public ComponentRemoteKey createFromParcel(Parcel source) {
-            return new ComponentRemoteKey(source);
+    public static final Creator<ComponentKey> CREATOR = new Creator<ComponentKey>() {
+        public ComponentKey createFromParcel(Parcel source) {
+            return new ComponentKey(source);
         }
 
-        public ComponentRemoteKey[] newArray(int size) {
-            return new ComponentRemoteKey[size];
+        public ComponentKey[] newArray(int size) {
+            return new ComponentKey[size];
         }
     };
 }

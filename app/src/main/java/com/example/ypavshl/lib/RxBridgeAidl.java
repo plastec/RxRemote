@@ -6,22 +6,19 @@ import android.os.Parcelable;
 import android.os.RemoteException;
 import android.util.Log;
 
+import com.example.ypavshl.lib.parcel.ComponentKey;
 import com.example.ypavshl.lib.parcel.RemoteItem;
 import com.example.ypavshl.lib.parcel.RemoteKey;
 import com.example.ypavshl.lib.parcel.RemoteThrowable;
+import com.example.ypavshl.lib.parcel.SubscriberKey;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import rx.Observable;
-import rx.Subscription;
-import rx.functions.Action0;
-import rx.functions.Action1;
-import rx.subjects.BehaviorSubject;
-import rx.subjects.Subject;
+import rx.Subscriber;
 
-// TODO consider spliting this class into two separately logical Classes
 /**
  * Created by ypavshl on 6.1.16.
  */
@@ -32,129 +29,122 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
     // Local side
     private final Context mContext;
     private ComponentName mComponentName;
-    private OnRxRemoteRegistrationListener mRegistrationListener;
-    private Map<ComponentRemoteKey, IRxRemote> mRemoteCallbacks = new HashMap<>();
-    private Map<ComponentRemoteKey, Subscription> mSubscriptions = new HashMap<>();
-    private Map<ComponentRemoteKey, Observable> mOfferedObservables = new ConcurrentHashMap<>();
+    private OnComponentRegistrationListener mRegistrationListener;
+    private Map<RemoteKey, Map<SubscriberKey, Subscriber>> mSubscribers = new HashMap<>();
+    private Map<RemoteKey, Observable> mOfferedObservables = new ConcurrentHashMap<>();
 
     // Remote side
     protected Remotes mRemotes = new Remotes();
-    private Map<ComponentRemoteKey, Subject> mBoundObservables = new ConcurrentHashMap<>();
+    private Map<ComponentKey, RemoteObservable> mBoundObservables = new ConcurrentHashMap<>();
 
     public RxBridgeAidl(Context context) {
         mContext = context;
         mComponentName = new ComponentName(context, context.getClass());
     }
 
-    public RxBridgeAidl(Context context, OnRxRemoteRegistrationListener listener) {
+    public RxBridgeAidl(Context context, OnComponentRegistrationListener listener) {
         this(context);
         mRegistrationListener = listener;
     }
 
-    @Override
-    public void onNext(ComponentRemoteKey key, RemoteItem item) throws RemoteException {
-        Log.i(TAG + " RxRemote", "onNext " + key.component + " " + this);
-        for (ComponentRemoteKey ck : mBoundObservables.keySet()) {
-            Log.i(TAG + " RxRemote", "mBoundObservables " + ck.component + " " + mBoundObservables.get(ck));
-        }
-        mBoundObservables.get(key).onNext(item.item);
-    }
-
-    @Override
-    public void onStart(ComponentRemoteKey key) throws RemoteException {
-        // пока что хз
-        // может и не нужен будет совсем
-    }
-
-    @Override
-    public void onComplete(ComponentRemoteKey key) throws RemoteException {
-        mBoundObservables.get(key).onCompleted();
-    }
-
-    @Override
-    public void onError(ComponentRemoteKey key, RemoteThrowable t) throws RemoteException {
-        mBoundObservables.get(key).onError(t.throwable);
-    }
-
     protected void registerOn(IRxRemote remote) throws RemoteException {
-        remote.registerRemote(this);
+        remote.register(this);
     }
 
     protected void unregisterFrom(IRxRemote remote) throws RemoteException {
         unbindObservables();
-        remote.unregisterRemote(this);
+        remote.unregister(this);
     }
 
     @Override
-    public void registerRemote(IRxRemote remote) {
+    public void register(IRxRemote remote) {
         try {
             ComponentName component = remote.getComponentName();
             Log.i(TAG + " RemoteRx", "registerRemote " + remote + " " + component);
             if (mRemotes.contains(component))
                 return;
 
-            remote.registerRemote(this);
-            mRemotes.put(remote, remote.getComponentName());
-            onRxRemoteRegistered(remote, mRemotes.get(remote));
+            remote.register(this);
+            mRemotes.put(remote, component);
+            onComponentRegistered(component);
             if (mRegistrationListener != null)
-                mRegistrationListener.onRemoteRegistered(remote, component);
+                mRegistrationListener.onConponentRegistered(component);
         } catch (RemoteException e) {
             // no need to do anything here
         }
     }
 
     @Override
-    public void unregisterRemote(IRxRemote remote) throws RemoteException {
-
+    public void unregister(IRxRemote remote) throws RemoteException {
         Log.i(TAG + " RemoteRx", "unregisterRemote " + remote + " " + remote.getComponentName());
         ComponentName component = mRemotes.remove(remote);
-        onRxRemoteUnregistered(remote, component);
+        onComponentUnregistered(component);
         if (mRegistrationListener != null)
-            mRegistrationListener.onRemoteUnregistered(remote, component);
+            mRegistrationListener.onComponentUnregistered(component);
+    }
+
+    @Override
+    public void subscribe(IObservableCallback callback, RemoteKey remoteKey, SubscriberKey subscriberKey) throws RemoteException {
+        synchronized (remoteKey) { // TODO no-no. Should be map with remote key lock
+
+            Observable observable = mOfferedObservables.get(remoteKey); //TODO introduce getType() in remote key
+
+            Subscriber subscriber = new Subscriber() {
+                @Override
+                public void onCompleted() {
+                    try {
+                        callback.onComplete(subscriberKey);
+                    } catch (RemoteException e) {
+                        // ignore
+                    }
+                }
+
+                @Override
+                public void onError(Throwable e) {
+                    try {
+                        callback.onError(subscriberKey, new RemoteThrowable(e));
+                    } catch (RemoteException re) {
+                        // ignore
+                    }
+                }
+
+                @Override
+                public void onNext(Object o) {
+                    try {
+                        callback.onNext(subscriberKey,
+                                new RemoteItem((Parcelable)remoteKey.type.cast(o)));
+                    } catch (RemoteException e) {
+                        // ignore
+                    }
+                }
+            };
+
+            if (!mSubscribers.containsKey(remoteKey))
+                mSubscribers.put(remoteKey, new HashMap<>());
+
+            mSubscribers.get(remoteKey).put(subscriberKey, subscriber);
+            observable.subscribe(subscriber);
+        }
+    }
+
+    @Override
+    public void unsubscribe(RemoteKey remoteKey, SubscriberKey subscriberKey) throws RemoteException {
+        synchronized (remoteKey) { // TODO no-no. Should be map with remote key lock
+            mSubscribers.get(remoteKey).get(subscriberKey).unsubscribe();
+        }
     }
 
     /**
      * Called when a remote bridge is regirested to this bridge
-     * @param remote
      * @param name
      */
-    protected void onRxRemoteRegistered(IRxRemote remote, ComponentName name) {}
+    protected void onComponentRegistered(ComponentName name) {}
 
     /**
      * Called when a remote bridge is unregirested to this bridge
-     * @param remote
      * @param name
      */
-    protected void onRxRemoteUnregistered(IRxRemote remote, ComponentName name) {}
-
-    @Override
-    public boolean registerKey(IRxRemote remote, ComponentRemoteKey key) {
-        Log.i(TAG + " RemoteRx", "registerCallback " + remote);
-        synchronized (key) {
-            if (mOfferedObservables.containsKey(key)) {
-                    mRemoteCallbacks.put(key, remote);
-                if (!mSubscriptions.containsKey(key))
-                    subscribe(key);
-                return true;
-            } else {
-                return false;
-            }
-        }
-    }
-
-
-    @Override
-    public boolean unregisterKey(IRxRemote remote, ComponentRemoteKey key) {
-        Log.i(TAG + " RemoteRx", "unregisterKey");
-        synchronized (key) {
-            if (mRemoteCallbacks.remove(key) != null){
-                unsubscribe(key);
-                return true;
-            } else {
-                return false;
-            }
-        }
-    }
+    protected void onComponentUnregistered(ComponentName name) {}
 
     @Override
     public ComponentName getComponentName() throws RemoteException {
@@ -168,33 +158,31 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
     }
 
     @Override
-    public synchronized <T> void offerObservable(RemoteKey<T> key, Observable<T> observable) {
+    public synchronized <T> void offerObservable(RemoteKey<T> remoteKey, Observable<T> observable) {
         Log.i(TAG + " RemoteRx", "unsubscribe(key)");
         if (observable == null)
-            throw new IllegalArgumentException("observable can't be null");
+            throw new IllegalArgumentException("Observable can't be null");
 
-        ComponentRemoteKey compKey = new ComponentRemoteKey(key, mContext); // TODO make cache
-        mOfferedObservables.put(compKey, observable);
+        mOfferedObservables.put(remoteKey, observable);
     }
 
     @Override
-    public <T> void dismissObservable(RemoteKey<T> key) {
-        ComponentRemoteKey compKey = new ComponentRemoteKey(key, mContext); // TODO make cache of local component key
-        dismissObservable(compKey);
+    public <T> void dismissObservable(RemoteKey<T> remoteKey) {
+        synchronized (remoteKey) {
+            mOfferedObservables.remove(remoteKey);
+            Map<SubscriberKey, Subscriber> map = mSubscribers.get(remoteKey);
+            if (map != null) {
+                for (Subscriber subscriber : map.values()){
+                    subscriber.unsubscribe();
+                }
+            }
+        }
     }
 
     @Override
     public void dismissObservables() {
-        for (ComponentRemoteKey compKey : mOfferedObservables.keySet())
-            dismissObservable(compKey);
-    }
-
-
-    private void dismissObservable(ComponentRemoteKey compKey) {
-        synchronized (compKey.remoteKey) {
-            mOfferedObservables.remove(compKey);
-            unsubscribe(compKey);
-        }
+        for (RemoteKey remoteKey : mOfferedObservables.keySet())
+            dismissObservable(remoteKey);
     }
 
     public <T> Observable<T> bindObservable(RemoteKey<T> key, Class clazz) {
@@ -203,40 +191,27 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
 
     @Override
     public <T> Observable<T> bindObservable(RemoteKey<T> key, ComponentName componentName) {
-        ComponentRemoteKey<T> compKey = new ComponentRemoteKey(key, componentName); // TODO make cache for remote component key
+        ComponentKey<T> compKey = new ComponentKey(key, componentName); // TODO make cache for remote component key
         return bindObservable(compKey);
     }
 
-    private <T> Observable<T> bindObservable(ComponentRemoteKey<T> compKey) {
-        Log.i(TAG + " RxRemote", "bindObservable " + compKey.component + " " + this);
-        synchronized (compKey.remoteKey) {
-            if (mBoundObservables.containsKey(compKey)) {
-                Log.i(TAG + " RxRemote", "1 bindObservable " + compKey.component + " " + this);
+    private <T> Observable<T> bindObservable(ComponentKey<T> compKey) {
+        synchronized (compKey) {
+            if (mBoundObservables.containsKey(compKey))
                 return mBoundObservables.get(compKey);
-            }
 
-            BehaviorSubject<T> subject = null;
-
-            try {
-                Log.i(TAG + " RxRemote", "2 bindObservable " + compKey.component + " " + this);
-                if (mRemotes.get(compKey.component).registerKey(this, compKey)) {
-                    Log.i(TAG + " RxRemote", "3 bindObservable " + compKey.component + " " + this);
-                    subject = BehaviorSubject.create();
-                    mBoundObservables.put(compKey, subject);
-                    Log.i(TAG + " RxRemote", "4 bindObservable " + subject + " " + this);
-                    Log.i(TAG + " RxRemote", "5 bindObservable " + mBoundObservables.get(compKey) + " " + this);
-                }
-            } catch (RemoteException e) {
-                // no need to do anything here
-            }
-
-            return subject;
+            IRxRemote iRemote = mRemotes.get(compKey.component);
+            RemoteOnSubscribe<T> onSubscribe
+                    = new RemoteOnSubscribe<>(iRemote, compKey.remoteKey);
+            RemoteObservable<T> observable = new RemoteObservable<>(onSubscribe);
+            mBoundObservables.put(compKey, observable);
+            return observable;
         }
     }
 
     @Override
     public <T> void unbindObservable(RemoteKey<T> key, ComponentName componentName) {
-        ComponentRemoteKey compKey = new ComponentRemoteKey(key, componentName); // TODO make cache for remote component key
+        ComponentKey compKey = new ComponentKey(key, componentName); // TODO make cache for remote component key
         unbindObservable(compKey);
     }
 
@@ -244,86 +219,20 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
         unbindObservable(key, new ComponentName(mContext, clazz));
     }
 
-    private <T> void unbindObservable(ComponentRemoteKey<T> compKey) {
-        synchronized (compKey.remoteKey) {
-
-            Subject s = mBoundObservables.remove(compKey);
-            Log.i(TAG + " RxRemote", "unbindObservable " + s);
-            if (s != null){
-                s.onCompleted();
-            }
-
-            try {
-                mRemotes.get(compKey.component).unregisterKey(this, compKey);
-            } catch (RemoteException e) {
-                // no need to do anything here
-            }
+    private <T> void unbindObservable(ComponentKey<T> compKey) {
+        synchronized (compKey) {
+            RemoteObservable observable = mBoundObservables.remove(compKey);
+            Log.i(TAG + " RxRemote", "unbindObservable " + observable);
+//            if (observable != null)
+//                observable.complete();
         }
     }
 
     @Override
     public void unbindObservables() {
         Log.i(TAG + " RxRemote", "unbindObservables()");
-        for(ComponentRemoteKey compKey : mBoundObservables.keySet())
+        for(ComponentKey compKey : mBoundObservables.keySet())
             unbindObservable(compKey);
     }
 
-    private <T> void subscribe(final ComponentRemoteKey<T> key) {
-        synchronized (key) {
-            if (mSubscriptions.containsKey(key))
-                return;
-
-            final IRxRemote remote = mRemoteCallbacks.get(key);
-
-            final Action1<T> onNext = new Action1<T>() {
-                @Override
-                public void call(T item) {
-                    synchronized (key) {
-                        try {
-                            remote.onNext(key, new RemoteItem((Parcelable)item));
-                        } catch (RemoteException e) {
-                            // ignore
-                        }
-                    }
-                }
-            };
-
-            final Action1<Throwable> onError = new Action1<Throwable>() {
-                @Override
-                public void call(Throwable throwable) {
-                    synchronized (key) {
-                        try {
-                            remote.onError(key, new RemoteThrowable(throwable));
-                        } catch (RemoteException e) {
-                            // ignore
-                        }
-                    }
-                }
-            };
-
-            final Action0 onComplete =  new Action0() {
-                @Override
-                public void call() {
-                    synchronized (key) {
-                        try {
-                            remote.onComplete(key);
-                        } catch (RemoteException e) {
-                            // ignore
-                        }
-                    }
-                }
-            };
-
-            Subscription subscription = mOfferedObservables.get(key).subscribe(onNext, onError, onComplete);
-            mSubscriptions.put(key, subscription);
-        }
-    }
-
-    private void unsubscribe(ComponentRemoteKey key) {
-        synchronized (key) {
-            Subscription s = mSubscriptions.remove(key);
-            if (s != null)
-                s.unsubscribe();
-        }
-    }
 }

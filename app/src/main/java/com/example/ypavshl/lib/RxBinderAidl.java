@@ -12,7 +12,7 @@ public class RxBinderAidl extends RxBridgeAidl {
         super(context);
     }
 
-    public RxBinderAidl(Context context, OnRxRemoteRegistrationListener listener) {
+    public RxBinderAidl(Context context, OnComponentRegistrationListener listener) {
         super(context, listener);
     }
 }

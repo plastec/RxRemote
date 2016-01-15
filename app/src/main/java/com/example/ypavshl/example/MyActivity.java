@@ -25,7 +25,7 @@ import rx.subjects.BehaviorSubject;
 public class MyActivity extends AppCompatActivity {
     private static final String TAG = MyActivity.class.getSimpleName();
 
-    public static final RemoteKey<ButtonItem> BUTTON_OBSERVABLE_KEY = new RemoteKey<>();
+    public static final RemoteKey<ButtonItem> BUTTON_OBSERVABLE_KEY = new RemoteKey<>(ButtonItem.class);
 
     private TextView mTextView;
     private FloatingActionButton mButton;

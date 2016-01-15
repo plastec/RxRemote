@@ -43,8 +43,6 @@ public class RxServiceConnectionAidl extends RxBridgeAidl implements ServiceConn
         }
     }
 
-
-
     public void onServiceDisconnected(ComponentName className) {
         Log.i(TAG + " RemoteRx", "onServiceDisconnected " + this);
         // This is called when the connection with the service has been

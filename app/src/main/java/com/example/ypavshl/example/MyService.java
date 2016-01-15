@@ -6,16 +6,11 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.*;
 import android.support.annotation.Nullable;
-import android.util.Log;
 
-import com.example.ypavshl.lib.IRxRemote;
-import com.example.ypavshl.lib.OnRxRemoteRegistrationListener;
+import com.example.ypavshl.lib.OnComponentRegistrationListener;
 import com.example.ypavshl.lib.parcel.RemoteKey;
 import com.example.ypavshl.lib.RxBinderAidl;
 
-import java.util.Random;
-
-import rx.Observable;
 import rx.subjects.BehaviorSubject;
 
 /**
@@ -26,10 +21,10 @@ import rx.subjects.BehaviorSubject;
  * http://www.parcelabler.com/
  *
  */
-public class MyService extends Service implements OnRxRemoteRegistrationListener {
+public class MyService extends Service implements OnComponentRegistrationListener {
     private static final String TAG = MyService.class.getSimpleName();
 
-    public static final RemoteKey<ColorItem> COLOR_OBSERVABLE_KEY = new RemoteKey<>();
+    public static final RemoteKey<ColorItem> COLOR_OBSERVABLE_KEY = new RemoteKey<>(ColorItem.class);
 
     private RxBinderAidl mBinder;
     private BehaviorSubject<ColorItem> mColorObservable = BehaviorSubject.create();
@@ -74,7 +69,7 @@ public class MyService extends Service implements OnRxRemoteRegistrationListener
 
     // TODO try to substitute this callback with Observable
     @Override
-    public void onRemoteRegistered(/*ncdot used*/IRxRemote remote, ComponentName component) {
+    public void onConponentRegistered(ComponentName component) {
         if (MyActivity.class.getName().equals(component.getClassName())) {
             mBinder.bindObservable(MyActivity.BUTTON_OBSERVABLE_KEY, MyActivity.class)
                 .subscribe(buttonItem -> {
@@ -85,6 +80,5 @@ public class MyService extends Service implements OnRxRemoteRegistrationListener
     }
 
     @Override
-    public void onRemoteUnregistered(IRxRemote remote, ComponentName component) {
-    }
+    public void onComponentUnregistered(ComponentName component) {}
 }

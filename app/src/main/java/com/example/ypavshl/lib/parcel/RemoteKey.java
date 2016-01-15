@@ -4,26 +4,26 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import java.io.Serializable;
+import java.util.HashMap;
 
 /**
  * Created by ypavshl on 29.12.15.
  */
 public final class RemoteKey<T> implements Parcelable, Serializable {
 
-    private final String mName;
+    private final String id;
 
-    public RemoteKey() {
+    public final Class<T> type;
+
+    public RemoteKey(Class<T> t) {
         StackTraceElement[] elements = Thread.currentThread().getStackTrace();
-        mName = elements[3].toString(); // TODO + application package name
-    }
-
-    public final String getName() {
-        return mName;
+        id = elements[3].toString();
+        type = t;
     }
 
     @Override
     public final int hashCode() {
-        return mName.hashCode();
+        return id.hashCode();
     }
 
     @Override
@@ -35,13 +35,13 @@ public final class RemoteKey<T> implements Parcelable, Serializable {
             return false;
         }
         RemoteKey lhs = (RemoteKey) o;
-        return mName.equals(lhs.mName);
+        return id.equals(lhs.id);
     }
 
     @Override
     public String toString() {
         return "RemoteKey{" +
-                "mName='" + mName + '\'' +
+                "id='" + id + '\'' +
                 '}';
     }
 
@@ -52,11 +52,13 @@ public final class RemoteKey<T> implements Parcelable, Serializable {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-        dest.writeString(this.mName);
+        dest.writeString(this.id);
+        dest.writeSerializable(this.type);
     }
 
     protected RemoteKey(Parcel in) {
-        this.mName = in.readString();
+        this.id = in.readString();
+        this.type = (Class<T>) in.readSerializable();
     }
 
     public static final Creator<RemoteKey> CREATOR = new Creator<RemoteKey>() {
