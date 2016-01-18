@@ -4,26 +4,27 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import java.io.Serializable;
-import java.util.HashMap;
 
 /**
  * Created by ypavshl on 29.12.15.
  */
 public final class RemoteKey<T> implements Parcelable, Serializable {
 
-    private final String id;
+    private static final String TAG = RemoteKey.class.getSimpleName();
+
+    private final String name;
 
     public final Class<T> type;
 
-    public RemoteKey(Class<T> t) {
+    public RemoteKey(String n, Class<T> t) {
         StackTraceElement[] elements = Thread.currentThread().getStackTrace();
-        id = elements[3].toString();
+        name = n;
         type = t;
     }
 
     @Override
     public final int hashCode() {
-        return id.hashCode();
+        return name.hashCode();
     }
 
     @Override
@@ -35,13 +36,13 @@ public final class RemoteKey<T> implements Parcelable, Serializable {
             return false;
         }
         RemoteKey lhs = (RemoteKey) o;
-        return id.equals(lhs.id);
+        return name.equals(lhs.name);
     }
 
     @Override
     public String toString() {
         return "RemoteKey{" +
-                "id='" + id + '\'' +
+                "name='" + name + '\'' +
                 '}';
     }
 
@@ -52,12 +53,12 @@ public final class RemoteKey<T> implements Parcelable, Serializable {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-        dest.writeString(this.id);
+        dest.writeString(this.name);
         dest.writeSerializable(this.type);
     }
 
     protected RemoteKey(Parcel in) {
-        this.id = in.readString();
+        this.name = in.readString();
         this.type = (Class<T>) in.readSerializable();
     }
 

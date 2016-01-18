@@ -26,7 +26,8 @@ import rx.subjects.BehaviorSubject;
 public class MyService extends Service implements OnComponentRegistrationListener {
     private static final String TAG = MyService.class.getSimpleName();
 
-    public static final RemoteKey<ColorItem> COLOR_OBSERVABLE_KEY = new RemoteKey<>(ColorItem.class);
+    public static final RemoteKey<ColorItem> COLOR_OBSERVABLE_KEY
+            = new RemoteKey<>("COLOR_OBSERVABLE", ColorItem.class);
 
     private RxBinderAidl mBinder;
     private BehaviorSubject<ColorItem> mColorObservable = BehaviorSubject.create();
