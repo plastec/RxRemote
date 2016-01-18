@@ -24,6 +24,9 @@
                  android:process=":routine">
         </service>
 
+        <!--<service android:name="com.example.ypavshl.example.MyService">
+        </service>-->
+
     </application>
 
 </manifest>

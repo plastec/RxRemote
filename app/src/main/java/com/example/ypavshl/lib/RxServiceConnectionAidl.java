@@ -12,14 +12,16 @@ import com.example.ypavshl.lib.parcel.RemoteKey;
 import rx.Observable;
 
 /**
+ * TODO implement multiple services support
+ *
  * Created by ypavshl on 6.1.16.
  */
 public class RxServiceConnectionAidl extends RxBridgeAidl implements ServiceConnection {
 
     private static final String TAG = RxServiceConnectionAidl.class.getSimpleName();
 
-    private IRxRemote mServiceRxRemote;
     private ComponentName mServiceComponentName;
+    private IBinder mService;
 
     public RxServiceConnectionAidl(Context context) {
         super(context);
@@ -31,13 +33,12 @@ public class RxServiceConnectionAidl extends RxBridgeAidl implements ServiceConn
         // interact with the service.  We are communicating with our
         // service through an IDL interface, so get a client-side
         // representation of that from the raw service object.
-        Log.i(TAG + " RemoteRx", "onServiceConnected " + this);
+        Log.i(TAG + " RxRemote", "onServiceConnected " + service);
         mServiceComponentName = className;
-        mServiceRxRemote = IRxRemote.Stub.asInterface(service);
+        mService = service;
 
         try {
-            mRemotes.put(mServiceRxRemote, mServiceComponentName);
-            registerOn(mServiceRxRemote);
+            registerOn(service, className);
         } catch (RemoteException e) {
             throw new RuntimeException(e);
         }
@@ -48,7 +49,7 @@ public class RxServiceConnectionAidl extends RxBridgeAidl implements ServiceConn
         // This is called when the connection with the service has been
         // unexpectedly disconnected -- that is, its process crashed.
         try {
-            unregisterFrom(mServiceRxRemote);
+            unregisterFrom(mService, mServiceComponentName);
         } catch (RemoteException e) {
             throw new RuntimeException(e);
         }
@@ -58,10 +59,9 @@ public class RxServiceConnectionAidl extends RxBridgeAidl implements ServiceConn
         return bindObservable(key, mServiceComponentName);
     }
 
-    @Override
-    public <T> void unbindObservable(RemoteKey<T> key, ComponentName componentName) {
+    // TODO this unbinding is under consideration !!!!
+    public <T> void unbindObservable(RemoteKey<T> key) {
         unbindObservable(key, mServiceComponentName);
     }
-
 
 }

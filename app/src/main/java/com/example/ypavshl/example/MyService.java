@@ -6,11 +6,13 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.*;
 import android.support.annotation.Nullable;
+import android.util.Log;
 
 import com.example.ypavshl.lib.OnComponentRegistrationListener;
 import com.example.ypavshl.lib.parcel.RemoteKey;
 import com.example.ypavshl.lib.RxBinderAidl;
 
+import rx.Observable;
 import rx.subjects.BehaviorSubject;
 
 /**
@@ -69,10 +71,10 @@ public class MyService extends Service implements OnComponentRegistrationListene
 
     // TODO try to substitute this callback with Observable
     @Override
-    public void onConponentRegistered(ComponentName component) {
+    public void onComponentRegistered(ComponentName component) {
         if (MyActivity.class.getName().equals(component.getClassName())) {
-            mBinder.bindObservable(MyActivity.BUTTON_OBSERVABLE_KEY, MyActivity.class)
-                .subscribe(buttonItem -> {
+            Observable<ButtonItem> observable = mBinder.bindObservable(MyActivity.BUTTON_OBSERVABLE_KEY, MyActivity.class);
+            observable.subscribe(buttonItem -> {
                     mCounter = 0;
                     mColorObservable.onNext(new ColorItem("item: " + mCounter , Color.WHITE));
                 });

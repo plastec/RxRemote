@@ -37,11 +37,11 @@ public class MyActivity extends AppCompatActivity {
         public void onServiceConnected(ComponentName className, IBinder service) {
             super.onServiceConnected(className, service);
             mRxConnection.bindObservable(MyService.COLOR_OBSERVABLE_KEY)
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(item -> {
-                        mTextView.setText(item.getText());
-                        mTextView.setBackgroundColor(item.getColor());
-                    });
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(item -> {
+                    mTextView.setText(item.getText());
+                    mTextView.setBackgroundColor(item.getColor());
+            });
         }
     };
 

@@ -2,6 +2,7 @@ package com.example.ypavshl.lib;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.os.IBinder;
 import android.os.Parcelable;
 import android.os.RemoteException;
 import android.util.Log;
@@ -35,6 +36,7 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
 
     // Remote side
     protected Remotes mRemotes = new Remotes();
+    protected Locals mLocals = new Locals();
     private Map<ComponentKey, RemoteObservable> mBoundObservables = new ConcurrentHashMap<>();
 
     public RxBridgeAidl(Context context) {
@@ -47,13 +49,28 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
         mRegistrationListener = listener;
     }
 
-    protected void registerOn(IRxRemote remote) throws RemoteException {
-        remote.register(this);
+    protected void registerOn(IBinder service, ComponentName compName) throws RemoteException {
+        if (service instanceof RxBridgeAidl) {
+            RxBridgeAidl bridge = (RxBridgeAidl)service;
+            mLocals.put(bridge, compName);
+            bridge.mLocals.put(this, getComponentName());
+            bridge.fireRegistered(getComponentName());
+        } else {
+            IRxRemote remote = IRxRemote.Stub.asInterface(service);
+            mRemotes.put(remote, compName);
+            (IRxRemote.Stub.asInterface(service)).register(this);
+        }
     }
 
-    protected void unregisterFrom(IRxRemote remote) throws RemoteException {
+    protected void unregisterFrom(IBinder service, ComponentName compName) throws RemoteException {
         unbindObservables();
-        remote.unregister(this);
+        if (service instanceof RxBridgeAidl) {
+            RxBridgeAidl bridge = mLocals.remove(compName);
+            bridge.fireUnregistered(compName);
+        } else {
+            IRxRemote remote = IRxRemote.Stub.asInterface(service);
+            remote.unregister(this);
+        }
     }
 
     @Override
@@ -66,21 +83,29 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
 
             remote.register(this);
             mRemotes.put(remote, component);
-            onComponentRegistered(component);
-            if (mRegistrationListener != null)
-                mRegistrationListener.onConponentRegistered(component);
+            fireRegistered(component);
         } catch (RemoteException e) {
             // no need to do anything here
         }
+    }
+
+    private void fireRegistered(ComponentName component) {
+        onComponentRegistered(component);
+        if (mRegistrationListener != null)
+                mRegistrationListener.onComponentRegistered(component);
     }
 
     @Override
     public void unregister(IRxRemote remote) throws RemoteException {
         Log.i(TAG + " RemoteRx", "unregisterRemote " + remote + " " + remote.getComponentName());
         ComponentName component = mRemotes.remove(remote);
+        fireRegistered(component);
+    }
+
+    private void fireUnregistered(ComponentName component) {
         onComponentUnregistered(component);
         if (mRegistrationListener != null)
-            mRegistrationListener.onComponentUnregistered(component);
+            mRegistrationListener.onComponentRegistered(component);
     }
 
     @Override
@@ -192,10 +217,17 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
     @Override
     public <T> Observable<T> bindObservable(RemoteKey<T> key, ComponentName componentName) {
         ComponentKey<T> compKey = new ComponentKey(key, componentName); // TODO make cache for remote component key
-        return bindObservable(compKey);
+
+        Observable<T> observable;
+        if (mLocals.contains(componentName)) {
+            observable = mLocals.get(componentName).mOfferedObservables.get(key);
+        } else {
+            observable = bindRemoteObservable(compKey);
+        }
+        return observable;
     }
 
-    private <T> Observable<T> bindObservable(ComponentKey<T> compKey) {
+    private <T> Observable<T> bindRemoteObservable(ComponentKey<T> compKey) {
         synchronized (compKey) {
             if (mBoundObservables.containsKey(compKey))
                 return mBoundObservables.get(compKey);
@@ -209,6 +241,15 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
         }
     }
 
+    /**
+     * TODO probably we bon't need unbind at all !!!!!
+     * because it's not obvious what to do with observable
+     * without corrupting it's nature.
+     *
+     * @param key
+     * @param componentName
+     * @param <T>
+     */
     @Override
     public <T> void unbindObservable(RemoteKey<T> key, ComponentName componentName) {
         ComponentKey compKey = new ComponentKey(key, componentName); // TODO make cache for remote component key
