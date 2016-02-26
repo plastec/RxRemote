@@ -1,9 +1,10 @@
 package ru.yandex.music.rxremote;
 
 import android.os.RemoteException;
+import android.support.annotation.NonNull;
 
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import ru.yandex.music.rxremote.parcel.RemoteItem;
 import ru.yandex.music.rxremote.parcel.RemoteKey;
@@ -15,67 +16,71 @@ import rx.subscriptions.Subscriptions;
 
 /**
  *
- * TODO synchronize
- *
  * Created by ypavshl on 15.1.16.
  */
 class AidlOnSubscribe<T> implements Observable.OnSubscribe<T> {
 
-    private Map<SubscriberKey, Subscriber<? super T>> mSubscribers = new ConcurrentHashMap<>();
-    private final IRxRemote mRxRemote;
+    private final IConnector mConnector;
     private final RemoteKey<T> mRemoteKey;
+    private final Map<Subscriber<? super T>, ObservableCallback<T>> mCallbacks = new HashMap<>();
 
-    private IObservableCallback.Stub mCallback = new IObservableCallback.Stub() {
+    private static class ObservableCallback<T1> extends IObservableCallback.Stub {
 
-        @Override
-        public void onNext(SubscriberKey key, RemoteItem item) throws RemoteException {
-            mSubscribers.get(key).onNext((T)item.item);
+        private final Subscriber<? super T1> mSubscriber;
+
+        private ObservableCallback(Subscriber<? super T1> subscriber) {
+            mSubscriber = subscriber;
         }
 
         @Override
-        public void onStart(SubscriberKey key) throws RemoteException {
-            mSubscribers.get(key).onStart();
+        public void onNext(RemoteItem item) throws RemoteException {
+            mSubscriber.onNext((T1) item.getItem());
         }
 
         @Override
-        public void onComplete(SubscriberKey key) throws RemoteException {
-            mSubscribers.get(key).onCompleted();
-            mSubscribers.remove(key);
+        public void onStart() throws RemoteException {
+            mSubscriber.onStart();
         }
 
         @Override
-        public void onError(SubscriberKey key, RemoteThrowable throwable) throws RemoteException {
-            mSubscribers.get(key).onError(throwable.throwable);
-            mSubscribers.remove(key);
+        public void onComplete() throws RemoteException {
+            mSubscriber.onCompleted();
         }
-    };
 
-    AidlOnSubscribe(final IRxRemote rxRemote, final RemoteKey<T> remoteKey) {
-        mRxRemote = rxRemote;
+        @Override
+        public void onError(RemoteThrowable throwable) throws RemoteException {
+            mSubscriber.onError(throwable.throwable);
+        }
+    }
+
+    AidlOnSubscribe(@NonNull final IConnector connector, @NonNull final RemoteKey<T> remoteKey) {
+        mConnector = connector;
         mRemoteKey = remoteKey;
     }
 
     @Override
-    public void call(Subscriber<? super T> subscriber) {
-        SubscriberKey key = new SubscriberKey();
-        mSubscribers.put(key, subscriber);
-        try {
-            mRxRemote.subscribe(mCallback, mRemoteKey, key);
-        } catch (RemoteException e) {
-            throw new RuntimeException(e);
+    public void call(@NonNull final Subscriber<? super T> subscriber) {
+        final SubscriberKey subscriberKey = new SubscriberKey();
+        final ObservableCallback callback = new ObservableCallback(subscriber);
+
+        synchronized (subscriberKey) {
+            mCallbacks.put(subscriber, callback);
+            try {
+                mConnector.subscribe(callback, mRemoteKey, subscriberKey);
+            } catch (RemoteException e) {
+                throw new RuntimeException(e);
+            }
         }
 
-        subscriber.add(Subscriptions.create(() -> mSubscribers.remove(key)));
+        subscriber.add(Subscriptions.create(() -> {
+            synchronized (subscriberKey) {
+                mCallbacks.remove(subscriber);
+                try {
+                    mConnector.unsubscribe(mRemoteKey, subscriberKey);
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+            }
+        }));
     }
-
-//    void complete() {
-//        for (Map.Entry<SubscriberKey, Subscriber<? super T>> subscriber : mSubscribers.entrySet()) {
-//            try {
-//                mRxRemote.unsubscribe(mRemoteKey, subscriber.getKey());
-//            } catch (RemoteException e) {
-//                // looks like nothing to do here
-//            }
-//            subscriber.getValue().unsubscribe();
-//        }
-//    }
 }

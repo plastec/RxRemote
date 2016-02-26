@@ -11,17 +11,23 @@ import java.util.Set;
 class PairHashMap<F,S> {
 
     private HashMap<Object, Pair<F, S>> mValues = new HashMap<>();
+    private HashSet<Pair<F, S>> mPairs = new HashSet<>();
     private HashSet<F> mFirsts = new HashSet<>();
     private HashSet<S> mSeconds = new HashSet<>();
 
     @Nullable
     Pair<F,S> put(F f, S s) {
-        Pair<F,S> current = new Pair<>(f, s);
-        mValues.put(f, current);
-        mValues.put(s, current);
-        mFirsts.add(f);
-        mSeconds.add(s);
-        return mValues.put(s, current);
+        if (!mValues.containsKey(f)) {
+            Pair<F, S> pair = new Pair<>(f, s);
+            mPairs.add(pair);
+            mValues.put(f, pair);
+            mValues.put(s, pair);
+            mFirsts.add(f);
+            mSeconds.add(s);
+            return pair;
+        } else {
+            return mValues.get(f);
+        }
     }
 
     @Nullable
@@ -46,6 +52,11 @@ class PairHashMap<F,S> {
     }
 
     @NonNull
+    Set<Pair<F,S>> pairs() {
+        return mPairs;
+    }
+
+    @NonNull
     Set<F> firsts() {
         return mFirsts;
     }
@@ -55,4 +66,5 @@ class PairHashMap<F,S> {
     Set<S> seconds() {
         return mSeconds;
     }
+
 }

@@ -20,12 +20,12 @@
             </intent-filter>
         </activity>
 
-        <service android:name="com.example.ypavshl.example.MyService"
-                 android:process=":routine">
-        </service>
+        <!--<service android:name="com.example.ypavshl.example.MyService"-->
+                 <!--android:process=":remote">-->
+        <!--</service>-->
 
-        <!--<service android:name="com.example.ypavshl.example.MyService">
-        </service>-->
+        <service android:name="com.example.ypavshl.example.MyService">
+        </service>
 
     </application>
 

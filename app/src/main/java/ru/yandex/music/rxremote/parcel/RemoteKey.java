@@ -2,6 +2,7 @@ package ru.yandex.music.rxremote.parcel;
 
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.support.annotation.NonNull;
 
 import java.io.Serializable;
 
@@ -12,37 +13,41 @@ public final class RemoteKey<T> implements Parcelable, Serializable {
 
     private static final String TAG = RemoteKey.class.getSimpleName();
 
-    private final String name;
+    private final String mName;
+    private final Class<T> mType;
 
-    public final Class<T> type;
-
-    public RemoteKey(String n, Class<T> t) {
+    public RemoteKey(@NonNull final String n, @NonNull final Class<T> t) {
         StackTraceElement[] elements = Thread.currentThread().getStackTrace();
-        name = n;
-        type = t;
+        mName = n;
+        mType = t;
+    }
+
+    public Class<T> getmType() {
+        return mType;
     }
 
     @Override
-    public final int hashCode() {
-        return name.hashCode();
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        RemoteKey<?> remoteKey = (RemoteKey<?>) o;
+
+        if (!mName.equals(remoteKey.mName)) return false;
+        return mType.equals(remoteKey.mType);
     }
 
     @Override
-    public final boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (!(o instanceof RemoteKey)) {
-            return false;
-        }
-        RemoteKey lhs = (RemoteKey) o;
-        return name.equals(lhs.name);
+    public int hashCode() {
+        int result = mName.hashCode();
+        result = 31 * result + mType.hashCode();
+        return result;
     }
 
     @Override
     public String toString() {
         return "RemoteKey{" +
-                "name='" + name + '\'' +
+                "mName='" + mName + '\'' +
                 '}';
     }
 
@@ -53,13 +58,13 @@ public final class RemoteKey<T> implements Parcelable, Serializable {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-        dest.writeString(this.name);
-        dest.writeSerializable(this.type);
+        dest.writeString(this.mName);
+        dest.writeSerializable(this.mType);
     }
 
     protected RemoteKey(Parcel in) {
-        this.name = in.readString();
-        this.type = (Class<T>) in.readSerializable();
+        this.mName = in.readString();
+        this.mType = (Class<T>) in.readSerializable();
     }
 
     public static final Creator<RemoteKey> CREATOR = new Creator<RemoteKey>() {

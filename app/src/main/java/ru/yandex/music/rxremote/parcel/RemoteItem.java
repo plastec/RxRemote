@@ -4,7 +4,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 /**
- * This a simple item for remote Rx emission.
+ * This a simple item for observe Rx emission.
  *
  * How to generate Parcelable quickly:
  * http://codentrick.com/quickly-create-parcelable-class-in-android-studio/
@@ -13,10 +13,14 @@ import android.os.Parcelable;
  */
 public final class RemoteItem<T extends Parcelable> implements Parcelable {
 
-    public final T item;
+    private final T item;
 
     public RemoteItem(T p) {
         item = p;
+    }
+
+    public T getItem() {
+        return item;
     }
 
     @Override

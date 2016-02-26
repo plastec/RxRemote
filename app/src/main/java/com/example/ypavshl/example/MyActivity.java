@@ -1,20 +1,20 @@
 package com.example.ypavshl.example;
 
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.*;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 
 import com.example.ypavshl.rxservice.R;
 
-import ru.yandex.music.rxremote.RxServiceConnectionAidl;
+import ru.yandex.music.rxremote.RxBridge;
+import ru.yandex.music.rxremote.RxBridgeAidl;
 import ru.yandex.music.rxremote.parcel.RemoteKey;
-import rx.Observable;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.subjects.BehaviorSubject;
 
@@ -30,20 +30,7 @@ public class MyActivity extends AppCompatActivity {
 
     private BehaviorSubject<ButtonItem> mButtonObservable = BehaviorSubject.create();
 
-    private RxServiceConnectionAidl mRxConnection = new RxServiceConnectionAidl(this) {
-        @Override
-        public void onServiceConnected(ComponentName className, IBinder service) {
-            super.onServiceConnected(className, service);
-            mRxConnection.bindObservable(MyService.COLOR_OBSERVABLE_KEY)
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(item -> {
-                    mTextView.setText(item.getText());
-                    mTextView.setBackgroundColor(item.getColor());
-            });
-        }
-    };
-
-
+    private RxBridge mBridge;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,6 +38,19 @@ public class MyActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        mBridge = new RxBridgeAidl(this);
+        mBridge.offerObservable(BUTTON_OBSERVABLE_KEY, mButtonObservable);
+        Intent intent = new Intent(this, MyService.class);
+        bindService(intent, mBridge, Context.BIND_AUTO_CREATE);
+        Log.i(TAG + " REMOTE", "mBridge.observe().subscribe(remoteObservable");
+        mBridge.observe(MyService.COLOR_OBSERVABLE_KEY)
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(colorItem -> {
+                    mTextView.setText(colorItem.getText());
+                    mTextView.setBackgroundColor(colorItem.getColor());
+                });
+
 
         mTextView = (TextView) findViewById(R.id.text);
 
@@ -64,18 +64,8 @@ public class MyActivity extends AppCompatActivity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        mRxConnection.offerObservable(BUTTON_OBSERVABLE_KEY, mButtonObservable);
-        Intent intent = new Intent(this, MyService.class);
-        bindService(intent, mRxConnection, Context.BIND_AUTO_CREATE);
-    }
-
-    @Override
-    protected void onPause() {
-        mRxConnection.unbindObservables();
-        mRxConnection.dismissObservables();
-        unbindService(mRxConnection);
-        super.onPause();
+    protected void onDestroy() {
+        unbindService(mBridge);
+        super.onDestroy();
     }
 }

@@ -1,18 +1,16 @@
 package com.example.ypavshl.example;
 
 import android.app.Service;
-import android.content.ComponentName;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.*;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
-import com.example.ypavshl.lib.OnComponentRegistrationListener;
-import com.example.ypavshl.lib.parcel.RemoteKey;
-import com.example.ypavshl.lib.RxBinderAidl;
 
-import rx.Observable;
+import ru.yandex.music.rxremote.RxBridgeAidl;
+import ru.yandex.music.rxremote.parcel.RemoteKey;
+import rx.android.schedulers.AndroidSchedulers;
 import rx.subjects.BehaviorSubject;
 
 /**
@@ -23,13 +21,13 @@ import rx.subjects.BehaviorSubject;
  * http://www.parcelabler.com/
  *
  */
-public class MyService extends Service implements OnComponentRegistrationListener {
+public class MyService extends Service /*implements OnComponentRegistrationListener*/ {
     private static final String TAG = MyService.class.getSimpleName();
 
     public static final RemoteKey<ColorItem> COLOR_OBSERVABLE_KEY
             = new RemoteKey<>("COLOR_OBSERVABLE", ColorItem.class);
 
-    private RxBinderAidl mBinder;
+    private RxBridgeAidl mBridge;
     private BehaviorSubject<ColorItem> mColorObservable = BehaviorSubject.create();
     private Thread mRoutine;
 
@@ -38,6 +36,7 @@ public class MyService extends Service implements OnComponentRegistrationListene
         @Override
         public void run() {
             mCounter = 0;
+
             while (true) {
                 try {
                     Thread.sleep(1000);
@@ -53,35 +52,27 @@ public class MyService extends Service implements OnComponentRegistrationListene
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        mBinder = new RxBinderAidl(this, this);
-        mBinder.offerObservable(COLOR_OBSERVABLE_KEY, mColorObservable);
+        mBridge = new RxBridgeAidl(this);
+        mBridge.offerObservable(COLOR_OBSERVABLE_KEY, mColorObservable);
+
+        Log.i(TAG + " REMOTE", "mBridge.observe().subscribe");
+        mBridge.observe(MyActivity.BUTTON_OBSERVABLE_KEY)
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(colorItem -> {
+                mCounter = 0;
+                mColorObservable.onNext(new ColorItem("item: " + mCounter , Color.WHITE));
+            });
 
         mRoutine = new Thread(mRunnable);
         mRoutine.start();
 
-        return mBinder;
+        return mBridge;
     }
 
     @Override
     public boolean onUnbind(Intent intent) {
-        mBinder.unbindObservables();
-        mBinder.dismissObservables();
+        mBridge.dismissObservables();
         mRoutine.interrupt();
         return super.onUnbind(intent);
     }
-
-    // TODO try to substitute this callback with Observable
-    @Override
-    public void onComponentRegistered(ComponentName component) {
-        if (MyActivity.class.getName().equals(component.getClassName())) {
-            Observable<ButtonItem> observable = mBinder.bindObservable(MyActivity.BUTTON_OBSERVABLE_KEY, MyActivity.class);
-            observable.subscribe(buttonItem -> {
-                    mCounter = 0;
-                    mColorObservable.onNext(new ColorItem("item: " + mCounter , Color.WHITE));
-                });
-        }
-    }
-
-    @Override
-    public void onComponentUnregistered(ComponentName component) {}
 }
