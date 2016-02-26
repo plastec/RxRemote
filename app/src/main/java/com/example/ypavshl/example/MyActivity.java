@@ -7,16 +7,13 @@ import android.os.*;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.view.View;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.widget.TextView;
 
-import com.example.ypavshl.lib.RxServiceConnectionAidl;
-import com.example.ypavshl.lib.parcel.RemoteKey;
 import com.example.ypavshl.rxservice.R;
 
+import ru.yandex.music.rxremote.RxServiceConnectionAidl;
+import ru.yandex.music.rxremote.parcel.RemoteKey;
 import rx.Observable;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.subjects.BehaviorSubject;
@@ -45,6 +42,8 @@ public class MyActivity extends AppCompatActivity {
             });
         }
     };
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
