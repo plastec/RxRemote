@@ -9,10 +9,11 @@ import android.support.annotation.NonNull;
 import android.util.Log;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import ru.yandex.music.rxremote.parcel.ComponentKey;
 import ru.yandex.music.rxremote.parcel.RemoteItem;
 import ru.yandex.music.rxremote.parcel.RemoteKey;
 import ru.yandex.music.rxremote.parcel.RemoteThrowable;
@@ -27,17 +28,17 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
 
     private static final String TAG = RxBridgeAidl.class.getSimpleName();
 
-    // Local side
     private final Context mContext;
     private ComponentName mComponentName;
     private OnComponentRegistrationListener mRegistrationListener;
     private Map<RemoteKey, Map<SubscriberKey, Subscriber>> mSubscribers = new HashMap<>();
-    private Map<RemoteKey, Observable> mOfferedObservables = new ConcurrentHashMap<>();
+    private Map<RemoteKey, Observable> mObservables = new ConcurrentHashMap<>();
 
-    // Remote side
-    protected Remotes mRemotes = new Remotes();
-    protected Locals mLocals = new Locals();
-    private Map<ComponentKey, AidlObservable> mBoundObservables = new ConcurrentHashMap<>();
+    private Observable<? extends RxRemote> mRxRemoteObservable;
+    private Set<Subscriber> mRxRemoteSubscribers = new HashSet<>();
+
+    private PairHashMap<IRxRemote, ComponentName> mRemotes = new PairHashMap<>();
+    private PairHashMap<RxBridgeAidl, ComponentName> mLocals = new PairHashMap<>();
 
     public RxBridgeAidl(Context context) {
         mContext = context;
@@ -131,10 +132,8 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
      */
     // TODO try make this private. Inplements ServiceConnection.
     protected void unregisterFrom(IBinder service, ComponentName compName) throws RemoteException {
-        unbindObservables();
         if (service instanceof RxBridgeAidl) {
-            RxBridgeAidl bridge = mLocals.remove(compName);
-            mLocals.remove(compName);
+            RxBridgeAidl bridge = mLocals.remove(compName).first;
             bridge.unregisterLocally(this);
         } else {
             IRxRemote remote = IRxRemote.Stub.asInterface(service);
@@ -150,8 +149,7 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
      */
     @Override
     public void unregister(IRxRemote remote) throws RemoteException {
-        Log.i(TAG + " RemoteRx", "unregisterRemote " + remote + " " + remote.getComponentName());
-        ComponentName component = mRemotes.remove(remote);
+        ComponentName component = mRemotes.remove(remote).second;
         fireRegistered(component);
     }
 
@@ -194,7 +192,7 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
     {
         synchronized (remoteKey) { // TODO no-no. Should be map with remote key lock
 
-            Observable observable = mOfferedObservables.get(remoteKey); //TODO introduce getType() in remote key
+            Observable observable = mObservables.get(remoteKey); //TODO introduce getType() in remote key
 
             Subscriber subscriber = new Subscriber() {
                 @Override
@@ -243,17 +241,16 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
 
     @Override
     public void onObservableOffered(RemoteKey remoteKey) throws RemoteException {
-        закончил здесь
+        // закончил здесь
     }
 
-    @Override
-    public void onObservableOfferedLocally(Observable observable) {
-        закончил здесь
+    private void onObservableOfferedLocally(Observable observable) {
+        // закончил здесь
     }
 
     @Override
     public void onObservableDismissed(RemoteKey remoteKey) throws RemoteException {
-        закончил здесь
+        // закончил здесь
     }
 
     /**
@@ -292,7 +289,7 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
         if (observable == null)
             throw new IllegalArgumentException("Observable can't be null");
 
-        mOfferedObservables.put(remoteKey, observable);
+        mObservables.put(remoteKey, observable);
         for (IRxRemote remote : mRemotes.all()) {
             try {
                 remote.onObservableOffered(remoteKey);
@@ -313,7 +310,7 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
     @Override
     public <T> void dismissObservable(RemoteKey<T> remoteKey) {
         synchronized (remoteKey) {
-            mOfferedObservables.remove(remoteKey);
+            mObservables.remove(remoteKey);
             for (IRxRemote remote : mRemotes.all()) {
                 try {
                     remote.onObservableDismissed(remoteKey);
@@ -339,11 +336,10 @@ class RxBridgeAidl extends IRxRemote.Stub implements RxBridge {
 
     @Override
     public void dismissObservables() {
-        for (RemoteKey remoteKey : mOfferedObservables.keySet())
+        for (RemoteKey remoteKey : mObservables.keySet())
             dismissObservable(remoteKey);
     }
 
-    private Observable<? extends RxRemote> mRxRemoteObservable;
     @Override
     public Observable<? extends RxRemote> remote() {
         return mRxRemoteObservable;
