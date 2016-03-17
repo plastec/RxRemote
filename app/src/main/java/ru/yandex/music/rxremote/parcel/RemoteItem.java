@@ -4,7 +4,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 /**
- * This a simple item for observe Rx emission.
+ * This a simple item to observe Rx emission.
  *
  * How to generate Parcelable quickly:
  * http://codentrick.com/quickly-create-parcelable-class-in-android-studio/

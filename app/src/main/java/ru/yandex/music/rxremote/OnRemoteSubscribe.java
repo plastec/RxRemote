@@ -30,6 +30,7 @@ class OnRemoteSubscribe<T> implements Observable.OnSubscribe<T> {
     public void call(Subscriber<? super T> subscriber) {
         mObservable.subscribe(remoteRx -> {
                 if (remoteRx.getRemoteKey().equals(mKey)
+                        && remoteRx.getObservable(mKey) != null
                         && (mName == null || remoteRx.getComponentName().equals(mName))) {
                     remoteRx.getObservable(mKey).subscribe(subscriber);
                 }

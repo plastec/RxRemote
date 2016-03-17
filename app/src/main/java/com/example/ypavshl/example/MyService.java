@@ -21,7 +21,7 @@ import rx.subjects.BehaviorSubject;
  * http://www.parcelabler.com/
  *
  */
-public class MyService extends Service /*implements OnComponentRegistrationListener*/ {
+public class MyService extends Service {
     private static final String TAG = MyService.class.getSimpleName();
 
     public static final RemoteKey<ColorItem> COLOR_OBSERVABLE_KEY
@@ -55,7 +55,7 @@ public class MyService extends Service /*implements OnComponentRegistrationListe
         mBridge = new RxBridgeAidl(this);
         mBridge.offerObservable(COLOR_OBSERVABLE_KEY, mColorObservable);
 
-        Log.i(TAG + " REMOTE", "mBridge.observe().subscribe");
+        Log.i(TAG + " REMOTE", "mBridge.get().subscribe");
         mBridge.observe(MyActivity.BUTTON_OBSERVABLE_KEY)
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe(colorItem -> {

@@ -2,6 +2,7 @@ package ru.yandex.music.rxremote;
 
 import android.content.ComponentName;
 import android.support.annotation.NonNull;
+import android.util.Log;
 import android.util.Pair;
 
 import java.util.HashMap;
@@ -60,7 +61,7 @@ class RxRemoteOnSubscribe implements Observable.OnSubscribe<RxRemote> {
     }
 
     synchronized void onObservableDismissed(@NonNull final RemoteKey key,
-                               @NonNull final ComponentName name) {
+                                            @NonNull final ComponentName name) {
         RxRemote observableHolder = new RxRemote(null, key, name);
         synchronized (mObservables) {
             mObservables.remove(Pair.create(key, name));

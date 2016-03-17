@@ -227,13 +227,13 @@ public class RxBridgeAidl extends IConnector.Stub implements RxBridge {
     }
 
     /**
-     * Called when a observe bridge is regirested to this bridge
+     * Called when a remote bridge is regirested to this bridge
      * @param name
      */
     protected void onComponentRegistered(ComponentName name) {}
 
     /**
-     * Called when a observe bridge is unregirested to this bridge
+     * Called when a remote bridge is unregirested to this bridge
      * @param name
      */
     protected void onComponentUnregistered(ComponentName name) {}
