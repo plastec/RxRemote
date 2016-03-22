@@ -8,7 +8,8 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 
 
-import ru.yandex.music.rxremote.RxBridgeAidl;
+import ru.yandex.music.rxremote.RxBridge;
+import ru.yandex.music.rxremote.RxSingleBridge;
 import ru.yandex.music.rxremote.parcel.RemoteKey;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.subjects.BehaviorSubject;
@@ -27,7 +28,7 @@ public class MyService extends Service {
     public static final RemoteKey<ColorItem> COLOR_OBSERVABLE_KEY
             = new RemoteKey<>("COLOR_OBSERVABLE", ColorItem.class);
 
-    private RxBridgeAidl mBridge;
+    private RxBridge mBridge;
     private BehaviorSubject<ColorItem> mColorObservable = BehaviorSubject.create();
     private Thread mRoutine;
 
@@ -49,10 +50,37 @@ public class MyService extends Service {
         }
     };
 
+//    private Observable.OnSubscribe<Integer> mOnSubscribe = new Observable.OnSubscribe<Integer>() {
+//        @Override
+//        public void call(Subscriber<? super Integer> subscriber) {
+//            Log.i("AAAA", "call subscriber = " + subscriber + " " + this);
+//        }
+//    };
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        mRoutine = new Thread(mRunnable);
+        mRoutine.start();
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        RxSingleBridge bridge = intent.getParcelableExtra("result_bridge");
+        bridge.offerObservable(COLOR_OBSERVABLE_KEY, mColorObservable);
+
+//        Observable<Integer> observable = Observable.create(mOnSubscribe);
+//        observable.subscribe(integer -> {});
+//        observable.subscribe(integer -> {});
+//        observable.subscribe(integer -> {});
+
+        return super.onStartCommand(intent, flags, startId);
+    }
+
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        mBridge = new RxBridgeAidl(this);
+        mBridge = new RxBridge(this);
         mBridge.offerObservable(COLOR_OBSERVABLE_KEY, mColorObservable);
 
         Log.i(TAG + " REMOTE", "mBridge.get().subscribe");
@@ -62,10 +90,8 @@ public class MyService extends Service {
                 mCounter = 0;
                 mColorObservable.onNext(new ColorItem("item: " + mCounter , Color.WHITE));
             });
-
-        mRoutine = new Thread(mRunnable);
-        mRoutine.start();
-
+//        mRoutine = new Thread(mRunnable);
+//        mRoutine.start();
         return mBridge;
     }
 

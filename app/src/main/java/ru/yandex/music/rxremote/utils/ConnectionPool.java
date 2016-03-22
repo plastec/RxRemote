@@ -7,7 +7,7 @@ import android.support.annotation.NonNull;
 import java.util.HashMap;
 import java.util.Map;
 
-import ru.yandex.music.rxremote.RxBridgeAidl;
+import ru.yandex.music.rxremote.RxBridge;
 import rx.Observable;
 
 // TODO synchronize
@@ -17,15 +17,15 @@ import rx.Observable;
  */
 public abstract class ConnectionPool {
 
-    private final Map<Context, Observable<RxBridgeAidl>> mPool = new HashMap<>();
+    private final Map<Context, Observable<RxBridge>> mPool = new HashMap<>();
 
-    public Observable<RxBridgeAidl> get(@NonNull final Context context) {
+    public Observable<RxBridge> get(@NonNull final Context context) {
         if (mPool.containsKey(context))
             return mPool.get(context);
 
-        Observable.OnSubscribe<RxBridgeAidl> onSubscribe
+        Observable.OnSubscribe<RxBridge> onSubscribe
                 = new ConnectionOnSubscribe(context, buildIntent(context), buildFlags(context));
-        Observable<RxBridgeAidl> observable = Observable.create(onSubscribe);
+        Observable<RxBridge> observable = Observable.create(onSubscribe);
         mPool.put(context, observable);
 
         return observable;

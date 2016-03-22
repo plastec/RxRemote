@@ -6,12 +6,14 @@ import android.os.*;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 
 import com.example.ypavshl.rxservice.R;
 import com.trello.rxlifecycle.components.support.RxAppCompatActivity;
 
+import ru.yandex.music.rxremote.RxSingleBridge;
 import ru.yandex.music.rxremote.utils.ConnectionPool;
 import ru.yandex.music.rxremote.parcel.RemoteKey;
 import rx.android.schedulers.AndroidSchedulers;
@@ -49,19 +51,31 @@ public class MyActivity extends RxAppCompatActivity{
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        mPool.get(this)
-            .flatMap(rxBridgeAidl -> {
-                rxBridgeAidl.offerObservable(BUTTON_OBSERVABLE_KEY, mButtonObservable);
-                return rxBridgeAidl.observe(MyService.COLOR_OBSERVABLE_KEY);
-            })
-            .compose(this.bindToLifecycle())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(colorItem -> {
-                mTextView.setText(colorItem.getText());
-                mTextView.setBackgroundColor(colorItem.getColor());
-            });
+//        mPool.get(this)
+//            .flatMap(rxBridgeAidl -> {
+//                rxBridgeAidl.offerObservable(BUTTON_OBSERVABLE_KEY, mButtonObservable);
+//                return rxBridgeAidl.observe(MyService.COLOR_OBSERVABLE_KEY);
+//            })
+//            .compose(this.bindToLifecycle())
+//            .observeOn(AndroidSchedulers.mainThread())
+//            .subscribe(colorItem -> {
+//                mTextView.setText(colorItem.getText());
+//                mTextView.setBackgroundColor(colorItem.getColor());
+//            });
 
+        Intent i = new Intent(this, MyService.class);
+        RxSingleBridge bridge = new RxSingleBridge();
+        i.putExtra("result_bridge", bridge);
+        startService(i);
 
+        Log.i(TAG + " REMOTE", "onCreate subscribe()");
+        bridge.observe(MyService.COLOR_OBSERVABLE_KEY)
+                .compose(this.bindToLifecycle())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(colorItem -> {
+                    mTextView.setText(colorItem.getText());
+                    mTextView.setBackgroundColor(colorItem.getColor());
+                });
 
         mTextView = (TextView) findViewById(R.id.text);
 

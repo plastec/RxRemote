@@ -16,11 +16,11 @@ public final class RxRemote {
     private final RemoteKey mKey;
     private final ComponentName mComponent;
 
-    protected <T> RxRemote(@Nullable Observable<T> o, @NonNull RemoteKey<T> k, @NonNull ComponentName c) {
+    protected <T> RxRemote(@Nullable Observable<T> o,
+                           @NonNull RemoteKey<T> k,
+                           @Nullable ComponentName c) {
         if (k == null)
             throw new IllegalArgumentException("RemoteKey == null");
-        if (c == null)
-            throw new IllegalArgumentException("ComponentName == null");
 
         mObservable = o;
         mKey = k;
@@ -44,19 +44,41 @@ public final class RxRemote {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-         RxRemote rxRemote = (RxRemote) o;
+        RxRemote rxRemote = (RxRemote) o;
 
-        if (!mObservable.equals(rxRemote.mObservable)) return false;
+        if (mObservable != null ? !mObservable.equals(rxRemote.mObservable) : rxRemote.mObservable != null)
+            return false;
         if (!mKey.equals(rxRemote.mKey)) return false;
-        return mComponent.equals(rxRemote.mComponent);
+        return !(mComponent != null ? !mComponent.equals(rxRemote.mComponent) : rxRemote.mComponent != null);
 
     }
 
     @Override
     public int hashCode() {
-        int result = mObservable.hashCode();
+        int result = mObservable != null ? mObservable.hashCode() : 0;
         result = 31 * result + mKey.hashCode();
-        result = 31 * result + mComponent.hashCode();
+        result = 31 * result + (mComponent != null ? mComponent.hashCode() : 0);
         return result;
     }
+
+    //    @Override
+//    public boolean equals(Object o) {
+//        if (this == o) return true;
+//        if (o == null || getClass() != o.getClass()) return false;
+//
+//         RxRemote rxRemote = (RxRemote) o;
+//
+//        if (!mObservable.equals(rxRemote.mObservable)) return false;
+//        if (!mKey.equals(rxRemote.mKey)) return false;
+//        return mComponent.equals(rxRemote.mComponent);
+//
+//    }
+//
+//    @Override
+//    public int hashCode() {
+//        int result = mObservable.hashCode();
+//        result = 31 * result + mKey.hashCode();
+//        result = 31 * result + mComponent.hashCode();
+//        return result;
+//    }
 }

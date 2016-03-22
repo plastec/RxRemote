@@ -20,9 +20,16 @@ import rx.subscriptions.Subscriptions;
  */
 class AidlOnSubscribe<T> implements Observable.OnSubscribe<T> {
 
-    private final IConnector mConnector;
+    private final SubscribeAdapter mConnector;
     private final RemoteKey<T> mRemoteKey;
     private final Map<Subscriber<? super T>, ObservableCallback<T>> mCallbacks = new HashMap<>();
+
+    interface SubscribeAdapter {
+        void subscribe(IObservableCallback callback, RemoteKey remoteKey, SubscriberKey subscriberKey)
+                throws RemoteException;
+        void unsubscribe(RemoteKey remoteKey, SubscriberKey subscriberKey)
+                throws RemoteException;
+    }
 
     private static class ObservableCallback<T1> extends IObservableCallback.Stub {
 
@@ -53,7 +60,8 @@ class AidlOnSubscribe<T> implements Observable.OnSubscribe<T> {
         }
     }
 
-    AidlOnSubscribe(@NonNull final IConnector connector, @NonNull final RemoteKey<T> remoteKey) {
+    AidlOnSubscribe(@NonNull final SubscribeAdapter connector,
+                    @NonNull final RemoteKey<T> remoteKey) {
         mConnector = connector;
         mRemoteKey = remoteKey;
     }
